@@ -45,7 +45,15 @@ class RMSNorm(torch.nn.Module):
             torch.Tensor: The normalized tensor.
         """
         # todo
-        raise NotImplementedError
+        # x_square = torch.square(x)
+        # dim = self.weight.shape.numel()
+        # sum = x_square.sum(dim=dim)
+        # n = x.shape[dim]
+        # rms_tensor = torch.sqrt(self.eps + 1 / n * sum)
+        # rms_tensor = rms_tensor.unsqueeze(dim)
+        # return x / rms_tensor
+        return x / (torch.sqrt(torch.mean(x**2, dim=-1, keepdim=True) + self.eps))
+        # raise NotImplementedError
 
     def forward(self, x):
         """
@@ -105,7 +113,14 @@ class Attention(nn.Module):
         attention matrix before applying it to the value tensor.
         """
         # todo
-        raise NotImplementedError
+        scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(self.head_dim)
+        attn_weights = F.softmax(scores, dim=-1)
+        if self.attn_dropout is not None:
+            attn_weights = self.attn_dropout(attn_weights)
+        # print(attn_weights.shape, value.shape)
+        output = torch.matmul(attn_weights, value)
+        return output
+        # raise NotImplementedError
 
     def forward(self, x: torch.Tensor):
         """
@@ -205,7 +220,19 @@ class LlamaLayer(nn.Module):
            output of the feed-forward network
         """
         # todo
-        raise NotImplementedError
+        # residual = x
+        # hidden_states = self.ffn_norm(x)
+        # hidden_states = self.attention(hidden_states)
+        # hidden_states = residual + hidden_states
+        # residual = hidden_states
+        # hidden_states = self.attention_norm(hidden_states)
+        # hidden_states = self.feed_forward(hidden_states)
+        # hidden_states = residual + hidden_states
+        # outputs = (hidden_states,)
+        h = x + self.attention(self.attention_norm(x))
+        h2 = h + self.feed_forward(self.ffn_norm(h))
+        return h2
+        # raise NotImplementedError
 
 
 class Llama(LlamaPreTrainedModel):
@@ -295,7 +322,7 @@ class Llama(LlamaPreTrainedModel):
             logits, _ = self(idx_cond)
             logits = logits[:, -1, :]  # crop to just the final time step
             # todo
-            raise NotImplementedError
+            # raise NotImplementedError
 
             if temperature == 0.0:
                 # select the single most likely index
@@ -310,6 +337,9 @@ class Llama(LlamaPreTrainedModel):
 
                 Note that we are not using top-k sampling/nucleus sampling in this procedure.
                 """
+                scaled_logits = logits / temperature
+                probs = F.softmax(scaled_logits, dim=-1)
+                idx_next = torch.multinomial(probs, num_samples=1)
             # append sampled index to the running sequence and continue
             idx = torch.cat((idx, idx_next), dim=1)
 

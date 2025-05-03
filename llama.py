@@ -114,6 +114,13 @@ class Attention(nn.Module):
         """
         # todo
         scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(self.head_dim)
+        mask = torch.triu(
+            torch.ones(scores.shape[-1], scores.shape[-1], dtype=torch.bool), diagonal=1
+        )
+        causal_mask = mask.unsqueeze(0)
+        causal_mask.expand(scores.shape[0], scores.shape[-1], scores.shape[-1])
+        causal_mask = causal_mask.unsqueeze(1)
+        scores = scores.masked_fill(causal_mask, float("-inf"))
         attn_weights = F.softmax(scores, dim=-1)
         if self.attn_dropout is not None:
             attn_weights = self.attn_dropout(attn_weights)
